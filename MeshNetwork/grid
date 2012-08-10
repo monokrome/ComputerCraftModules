@@ -1,0 +1,113 @@
+Grid = {}
+Grid.__index = Grid
+
+local function split(delimiter,str,limit)
+  local t, currentOffset
+  t={}
+  currentOffset=0
+  currentDelimiter=0
+  if(#str == 1) then return {p} end
+    while true do
+      l=string.find(str,delimiter,currentOffset,true) -- find the next d in the string
+      if l~=nil and (limit==nil or currentDelimiter<limit) then -- if "not not" found then..
+        table.insert(t, string.sub(str,currentOffset,l-1)) -- Save it in our array.
+        currentOffset=l+1 -- save just after where we found it for searching next time.
+        currentDelimiter=currentDelimiter+1
+      else
+        table.insert(t, string.sub(str,currentOffset)) -- Save what's left in our array.
+        break -- Break at end, as it should be, according to the lua manual.
+      end
+    end
+  return t
+end
+
+function Grid.new()
+  grid = {}
+  setmetatable(grid, Grid)
+
+  return grid
+end
+
+function Grid:initialize(side)
+  self.side = side
+  self.isInitialized = true
+
+  rednet.open(self.side)
+end
+
+function Grid:destroy()
+  self:broadcast('down')
+  rednet.close(self.side)
+
+  self.isInitialized = false
+end
+
+function Grid:broadcast(event, event_data, IDs)
+  if IDs == nil then
+    IDs = os.computerID()
+  else
+    table.insert(IDs, os.computerID())
+    IDs = table.concat(IDs, ',')
+  end
+
+  message = table.concat({
+    'relay',
+    IDs,
+    event,
+    event_data
+  }, ':')
+
+  print('Broadcasting: ' .. message)
+  rednet.broadcast(message)
+  sleep(3)
+end
+
+function Grid:receive(timeout)
+    senderID, receivedData, distance = rednet.receive(timeout)
+
+    if receivedData == nil then return nil end
+
+    return self:parseMessage(senderID, receivedData, distance)
+end
+
+function Grid:announce()
+  self:broadcast('available')
+end
+
+function Grid:loop(frequency)
+  self.frequency = frequency
+
+  while self.isInitialized == true do
+    self:announce()
+    self:receive(frequency)
+  end
+end
+
+function Grid:parseMessage(senderID, message, distance)
+    splitData = split(':', message, 3)
+    
+    if not splitData[1] or splitData[1] ~= 'relay' then
+      self:broadcast('message', message, {senderID})
+      return
+    end
+
+    if not splitData[2] or string.find(splitData[2], os.computerID()) ~= nil then
+      return nil
+    end
+
+    sourceIDs = split(',', splitData[2])
+
+    if not sourceIDs[0] then
+      sourceIDs = {splitData[2]}
+    end
+
+    type = splitData[3]
+    extraData = splitData[4]
+
+    self:broadcast(type, extraData, sourceIDs)
+
+    os.reboot()
+
+    return splitData
+end
+
