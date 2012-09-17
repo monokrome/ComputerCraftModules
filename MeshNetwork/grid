@@ -106,9 +106,6 @@ function Grid:parseMessage(senderID, message, distance)
 
     self:broadcast(type, extraData, sourceIDs)
 
-    os.reboot()
-
-    -- Figured that I'd put this here since it'll never happen anyway.
     return splitData
 end
 
