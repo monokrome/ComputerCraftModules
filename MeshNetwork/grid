@@ -108,6 +108,7 @@ function Grid:parseMessage(senderID, message, distance)
 
     os.reboot()
 
+    -- Figured that I'd put this here since it'll never happen anyway.
     return splitData
 end
 
